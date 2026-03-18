@@ -1,0 +1,4 @@
+feature,risk_level,reason
+duration,high,"Call duration is usually known only during/after the contact, so it may not exist at scoring time."
+month/day_of_week,medium,Calendar fields can encode campaign scheduling rather than customer propensity; safe only if available at prediction time.
+pdays/previous/poutcome,medium,Prior-contact history is useful but must be defined using information strictly available before the prediction timestamp.

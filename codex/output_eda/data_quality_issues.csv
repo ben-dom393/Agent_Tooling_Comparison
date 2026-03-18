@@ -1,0 +1,11 @@
+feature,issue_type,severity,evidence
+default,encoded_missing,medium,20.87% encoded as 'unknown'
+education,encoded_missing,low,4.20% encoded as 'unknown'
+housing,encoded_missing,low,2.40% encoded as 'unknown'
+loan,encoded_missing,low,2.40% encoded as 'unknown'
+job,encoded_missing,low,0.80% encoded as 'unknown'
+marital,encoded_missing,low,0.19% encoded as 'unknown'
+previous,zero_inflation,medium,86.34% zeros
+poutcome,dominant_category,low,Largest level covers 86.34% of rows
+default,dominant_category,low,Largest level covers 79.12% of rows
+loan,dominant_category,low,Largest level covers 82.43% of rows
