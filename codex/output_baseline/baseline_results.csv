@@ -1,0 +1,3 @@
+model,task,roc_auc,pr_auc,balanced_accuracy,positive_rate_pred
+LogisticRegression(balanced),binary_classification,0.9436930987310721,0.6215468961506011,0.8847603365724799,0.22772517601359554
+DummyClassifier(prior),binary_classification,0.5,0.11264870114105366,0.5,0.0
