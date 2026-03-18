@@ -1,0 +1,369 @@
+================================================================================
+SESSION LOG -- Predictive Analytics Pipeline
+Bank Marketing Term-Deposit Classification
+================================================================================
+Date        : 2026-03-18
+Dataset     : bank-additional-full.csv (UCI Bank Marketing)
+Target      : y (binary: yes/no -- did client subscribe to a term deposit?)
+Rows        : 41,188
+Columns     : 21 (10 numeric, 10 categorical, 1 target)
+Python      : Anaconda (C:\Users\84447\anaconda3\python.exe)
+Seed        : 42 (all random operations)
+Working dir : D:\UCL\term 2\MSIN0097 Predictive Analytics\group assignment\
+
+================================================================================
+TASK 1: EXPLORATORY DATA ANALYSIS
+================================================================================
+
+Prompt
+------
+Perform EDA useful for downstream predictive modelling. Examine data structure,
+variable types, missing values, summary statistics, target distribution, class
+imbalance, and relationships between predictors and target. Produce plots.
+Identify data quality issues, unusual patterns, and potential leakage risks.
+
+Actions Taken
+-------------
+1. Read first 30 lines of bank-additional-full.csv to understand format
+   (semicolon-delimited, "unknown" as missing sentinel).
+2. Checked for existing .py/.ipynb files in directory -- none found.
+3. Wrote eda.py -- a self-contained EDA script covering:
+   - Data loading and inspection (shape, dtypes, head)
+   - Missing/special values ("unknown" counts per categorical column)
+   - Summary statistics (describe for numerics, value_counts for categoricals)
+   - Target distribution with bar chart
+   - Univariate analysis (histograms, bar charts)
+   - Bivariate analysis (subscription rate by category, boxplots, correlation)
+   - Leakage checks (duration flagged, pdays sentinel, consistency checks)
+   - Outlier/distributional flags (skewness, IQR outliers)
+   - Comprehensive feature summary table
+   - Feature-target correlation bar chart
+4. Executed eda.py with Anaconda Python.
+   - Initial attempt with system python failed (exit code 49 -- Windows Store stub).
+   - Located Anaconda at C:\Users\84447\anaconda3\python.exe.
+   - Script ran successfully on second attempt.
+
+Output Files
+------------
+  eda.py                              Script (runnable)
+  eda_summary_table.csv               Per-feature summary table
+  fig_target_distribution.png         Target class balance bar chart
+  fig_numeric_distributions.png       Histograms of all numeric features
+  fig_categorical_distributions.png   Bar charts of all categorical features
+  fig_sub_rate_by_categorical.png     Subscription rate by category
+  fig_boxplots_by_target.png          Boxplots of numerics split by target
+  fig_correlation_heatmap.png         Numeric feature correlation matrix
+  fig_feature_correlation_with_target.png  Feature-target correlation bar chart
+
+Key Findings
+------------
+  - Class imbalance: 88.7% no / 11.3% yes (ratio ~8:1)
+  - No true NaN; "unknown" used as missing in 6 categoricals
+    - default: 20.9% unknown (and only 3 "yes" observations)
+    - education: 4.2%, housing/loan: 2.4%, job: 0.8%, marital: 0.2%
+  - duration (r=0.41 with target) flagged as LEAKAGE -- known only after call
+  - pdays: 96.3% = sentinel value 999 (never contacted before)
+    - 4,110 rows have pdays=999 but previous>0 or poutcome!=nonexistent
+  - Highly skewed: campaign (+4.8), previous (+3.8), duration (+3.3), pdays (-4.9)
+  - Strong macro-economic predictor block: euribor3m, emp.var.rate, nr.employed,
+    cons.price.idx are pairwise correlated at |r| > 0.70 (up to 0.97)
+  - Most predictive categoricals: poutcome=success (65% sub rate), contact=cellular
+    (14.7% vs 5.2%), month varies 6%-51%
+
+================================================================================
+TASK 2: BASELINE MODEL
+================================================================================
+
+Prompt
+------
+Build a sensible baseline model and evaluation harness. Specify prediction type,
+evaluation metrics, reproducible train/test split, preprocessing, and report
+results. Justify why this is a baseline rather than optimised model.
+
+Actions Taken
+-------------
+1. Reviewed EDA findings to inform model design.
+2. Verified library availability (pandas, sklearn, matplotlib, seaborn -- all OK;
+   xgboost and lightgbm -- not installed).
+3. Wrote baseline_model.py with:
+   - duration dropped (leakage)
+   - was_contacted_before binary flag from pdays
+   - 80/20 stratified train/test split
+   - ColumnTransformer: StandardScaler (numeric) + OneHotEncoder (categorical)
+   - Preprocessing inside Pipeline (fit on train only)
+   - Two models: LogisticRegression + RandomForest, both class_weight="balanced"
+   - 5-fold stratified CV on training set
+   - Holdout evaluation: AUROC, PR-AUC, F1, classification report
+   - ROC + Precision-Recall curves
+   - Top-20 LR coefficient plot
+   - Leakage and validity assertions
+4. Executed baseline_model.py.
+   - Unicode error on checkmark characters (GBK encoding on Windows).
+   - Fixed by replacing unicode checkmarks with "[OK]".
+   - All metrics computed successfully on second run.
+
+Output Files
+------------
+  baseline_model.py                   Script (runnable)
+  baseline_results_summary.csv        CV + holdout metrics table
+  fig_baseline_roc_pr.png             ROC and PR curves
+  fig_baseline_lr_coefficients.png    Top-20 LR feature coefficients
+
+Results (Holdout)
+-----------------
+  Model               AUROC   PR-AUC   F1
+  ------------------  ------  ------  ------
+  LogisticRegression  0.8009  0.4603  0.4679
+  RandomForest        0.7810  0.4303  0.3917
+
+Results (5-Fold CV)
+-------------------
+  Model               AUROC           F1              PR-AUC
+  ------------------  --------------  --------------  ---------------
+  LogisticRegression  0.7896 +/- 0.0054  0.4487 +/- 0.0042  0.4439 +/- 0.0083
+  RandomForest        0.7710 +/- 0.0062  0.3559 +/- 0.0061  0.4136 +/- 0.0097
+
+Baseline Justification
+----------------------
+  - No hyperparameter tuning (default C=1.0 for LR, default tree params for RF)
+  - No advanced feature engineering (no interactions, no target encoding)
+  - No feature selection
+  - No ensemble/stacking
+  - Class imbalance handled minimally (class_weight="balanced" only)
+
+================================================================================
+TASK 3: IMPROVED MODEL
+================================================================================
+
+Prompt
+------
+Diagnose baseline weaknesses, propose up to 3 improvements, implement the most
+promising change(s), and compare fairly against the baseline.
+
+Diagnosis
+---------
+  1. LR assumes linearity -- cannot capture non-linear/interaction effects
+  2. pdays=999 sentinel treated as real numeric distance in LR
+  3. Default 0.5 decision threshold is suboptimal for imbalanced data
+
+Proposed Improvements
+---------------------
+  1. HistGradientBoostingClassifier (sklearn native, LightGBM-equivalent)
+  2. Better feature engineering (pdays_clean, ordinal education, high_campaign flag)
+  3. CV-based threshold tuning (maximise F1 on inner folds, avoid test leakage)
+
+Actions Taken
+-------------
+1. Checked for XGBoost/LightGBM -- not installed.
+2. Verified HistGradientBoostingClassifier available (sklearn 1.6.1).
+3. Wrote improved_model.py with:
+   - Same train/test split (same random_state=42)
+   - LR baseline reproduced exactly for fair comparison
+   - HGBC with OrdinalEncoder for categoricals, native categorical support
+   - pdays_clean (999 -> -1), education_ordinal, high_campaign flag
+   - 5-fold CV-based threshold tuning (avg optimal threshold: 0.634)
+   - Permutation importance (AUROC-based, 10 repeats)
+   - Side-by-side ROC/PR curves, bar chart, feature importance plot
+4. Executed improved_model.py.
+   - First run: feature_importances_ attribute error on HGBC with native categoricals.
+   - Fixed: replaced with permutation_importance.
+   - Second run: DataFrame length mismatch for permutation importance names.
+   - Fixed: used X_test.columns instead of manual feature list.
+   - Third run: clean, all outputs generated.
+
+Output Files
+------------
+  improved_model.py                   Script (runnable)
+  improved_results_summary.csv        Side-by-side metrics table
+  fig_improved_roc_pr.png             ROC and PR curves (both models)
+  fig_improved_feature_importance.png Permutation importance (top 15)
+  fig_baseline_vs_improved.png        Bar chart comparing all 3 metrics
+
+Results (Holdout -- Improved vs Baseline)
+-----------------------------------------
+  Metric   LR Baseline  HGBC Improved  Delta     % Change
+  ------   -----------  -------------  --------  --------
+  AUROC    0.8009       0.8163         +0.0155   +1.9%
+  PR-AUC   0.4603       0.4868         +0.0265   +5.8%
+  F1       0.4679       0.5289         +0.0610   +13.0%
+
+Threshold Tuning (CV)
+---------------------
+  Fold 1: 0.62   Fold 2: 0.64   Fold 3: 0.64   Fold 4: 0.63   Fold 5: 0.64
+  Average optimal threshold: 0.634
+
+Top-5 Features (Permutation Importance)
+---------------------------------------
+  nr.employed   0.063
+  month         0.035
+  contact       0.027
+  euribor3m     0.017
+  campaign      0.010
+
+Overfit Check (CV AUROC vs Holdout AUROC)
+-----------------------------------------
+  LR baseline:    CV=0.7896  Holdout=0.8009  gap=+0.0113
+  HGBC improved:  CV=0.7968  Holdout=0.8163  gap=+0.0195
+
+================================================================================
+TASK 4: LEAKAGE AUDIT
+================================================================================
+
+Prompt
+------
+Review baseline_model.py (a modified version with intentional errors) for
+methodological errors. Detect leakage or evaluation mistakes, explain them,
+suggest corrected code, and show expected impact on results.
+
+Note: baseline_model.py was modified between Tasks 2 and 4 to introduce
+four methodological errors for the audit exercise.
+
+Issues Detected
+---------------
+  #  Issue                                    Severity   Location
+  -  ---------------------------------------- ---------  ---------------
+  1  String target 'y' retained as feature     CRITICAL   Lines 61, 68
+  2  job_yes_rate computed on full dataset      CRITICAL   Lines 49-50
+  3  'duration' not dropped                    SERIOUS    Absent
+  4  fit_transform(X) before train/test split  SERIOUS    Lines 82, 90-92
+
+  Additional: Validity checks (lines 262-268) falsely claim "[OK]"
+  for conditions that are violated.
+
+Actions Taken
+-------------
+1. Read the full modified baseline_model.py line by line.
+2. Identified all four leakage/evaluation issues with exact line numbers.
+3. Explained each issue's mechanism and expected metric inflation.
+4. Wrote baseline_model_corrected.py with all fixes applied:
+   - Added df.drop(columns=["duration", "y"]) after target encoding
+   - Removed job_yes_rate computation entirely
+   - Put preprocessor back inside Pipeline
+   - Split raw X/y first, then let Pipeline transform
+   - Added programmatic assertions for all validity claims
+5. Executed baseline_model_corrected.py -- all assertions passed.
+6. Compared leaked vs corrected metrics.
+
+Output Files
+------------
+  baseline_model_corrected.py         Script (runnable)
+  baseline_corrected_results.csv      Corrected metrics
+  fig_baseline_corrected_roc_pr.png   Corrected ROC/PR curves
+
+Leaked vs Corrected Results (Logistic Regression Holdout)
+---------------------------------------------------------
+  Metric   Leaked   Corrected   Inflation
+  ------   ------   ---------   ---------
+  AUROC    1.0000   0.8009      +0.1991 (phantom)
+  PR-AUC   1.0000   0.4603      +0.5397 (phantom)
+  F1       1.0000   0.4679      +0.5321 (phantom)
+
+  Leaked top coefficient:   y_yes = +13.50 (the target itself)
+  Corrected top coefficient: emp.var.rate = -2.32
+
+================================================================================
+TASK 5: EXPORT NOTEBOOK
+================================================================================
+
+Prompt
+------
+Export the leakage analysis as a Jupyter notebook.
+
+Actions Taken
+-------------
+1. Re-read both baseline_model.py and baseline_model_corrected.py for accuracy.
+2. Created leakage_analysis.ipynb with 27 cells (13 markdown, 14 code):
+   - Section 1: Setup & Data Loading
+   - Section 2: Issue Inventory (table of 4 issues)
+   - Section 3: Leaked Pipeline (exact reproduction, shows 1.000 scores)
+   - Section 4: Corrected Pipeline (fixes applied, shows real scores)
+   - Section 5: Side-by-Side Comparison (DataFrame + bar chart + ROC/PR curves)
+   - Section 6: Coefficient Forensics (leaked y_yes=+13.5 vs corrected emp.var.rate=-2.3)
+   - Section 7: Summary & Recommendations
+3. Executed notebook end-to-end via nbconvert:
+   jupyter nbconvert --to notebook --execute leakage_analysis.ipynb
+4. Verified all 14 code cells produced outputs with zero errors.
+5. Copied executed version back over source notebook (pre-populated outputs).
+6. Confirmed 3 standalone figures saved from notebook execution.
+
+Output Files
+------------
+  leakage_analysis.ipynb              Notebook (with outputs)
+  leakage_analysis_executed.ipynb     Backup of executed version
+  fig_leakage_comparison.png          Leaked vs Corrected bar chart
+  fig_leakage_roc_pr_comparison.png   Overlaid ROC/PR curves
+  fig_leakage_coefficients.png        Coefficient forensics side-by-side
+
+Notebook Verification
+---------------------
+  Total cells:  27
+  Code cells:   14
+  All outputs:  OK (14/14)
+  Errors:       0
+
+================================================================================
+COMPLETE FILE INVENTORY
+================================================================================
+
+  File                                   Type      Size     Purpose
+  -------------------------------------  --------  -------  ---------------------------
+  bank-additional-full.csv               Data      --       Source dataset (input)
+  eda.py                                 Script    --       Exploratory data analysis
+  eda_summary_table.csv                  CSV       --       Per-feature summary stats
+  baseline_model.py                      Script    --       Leaked baseline (with bugs)
+  baseline_model_corrected.py            Script    --       Corrected baseline
+  improved_model.py                      Script    --       HGBC improved model
+  leakage_analysis.ipynb                 Notebook  --       Leakage audit (with outputs)
+  leakage_analysis_executed.ipynb        Notebook  --       Backup of executed notebook
+  baseline_results_summary.csv           CSV       --       Leaked baseline metrics
+  baseline_corrected_results.csv         CSV       --       Corrected baseline metrics
+  improved_results_summary.csv           CSV       --       Improved model metrics
+  session_log.txt                        Log       --       This file
+  fig_target_distribution.png            Figure    --       EDA: target balance
+  fig_numeric_distributions.png          Figure    --       EDA: numeric histograms
+  fig_categorical_distributions.png      Figure    --       EDA: categorical bar charts
+  fig_sub_rate_by_categorical.png        Figure    --       EDA: subscription rates
+  fig_boxplots_by_target.png             Figure    --       EDA: boxplots by target
+  fig_correlation_heatmap.png            Figure    --       EDA: correlation matrix
+  fig_feature_correlation_with_target.png Figure   --       EDA: feature-target corr.
+  fig_baseline_roc_pr.png                Figure    --       Baseline: ROC/PR curves
+  fig_baseline_lr_coefficients.png       Figure    --       Baseline: LR coefficients
+  fig_baseline_corrected_roc_pr.png      Figure    --       Corrected: ROC/PR curves
+  fig_improved_roc_pr.png                Figure    --       Improved: ROC/PR curves
+  fig_improved_feature_importance.png    Figure    --       Improved: permutation imp.
+  fig_baseline_vs_improved.png           Figure    --       Improved vs baseline bars
+  fig_leakage_comparison.png             Figure    --       Leaked vs corrected bars
+  fig_leakage_roc_pr_comparison.png      Figure    --       Leaked vs corrected ROC/PR
+  fig_leakage_coefficients.png           Figure    --       Leaked vs corrected coefs
+
+================================================================================
+MODEL PERFORMANCE PROGRESSION
+================================================================================
+
+  Stage                    AUROC    PR-AUC   F1       Notes
+  -----------------------  ------   ------   ------   -------------------------
+  Leaked baseline (bugs)   1.0000   1.0000   1.0000   4 leakage issues
+  Corrected LR baseline    0.8009   0.4603   0.4679   All leakage fixed
+  Corrected RF baseline    0.7810   0.4303   0.3917   All leakage fixed
+  HGBC improved            0.8163   0.4868   0.5289   +HGBC, +features, +thresh
+
+  Best valid model: HGBC improved (AUROC=0.8163, F1=0.5289, threshold=0.634)
+
+================================================================================
+TECHNICAL NOTES
+================================================================================
+
+  - System Python (WindowsApps stub) returned exit code 49 on all attempts.
+    Resolved by using Anaconda Python directly.
+  - GBK encoding errors on Windows for Unicode characters in print statements.
+    Resolved by replacing Unicode checkmarks with ASCII "[OK]".
+  - HistGradientBoostingClassifier.feature_importances_ not available when
+    categorical_features parameter is used with OrdinalEncoder in Pipeline.
+    Resolved by using permutation_importance instead.
+  - Permutation importance returns importances for all columns in X_test,
+    not just the subset selected by ColumnTransformer. Feature names must
+    come from X_test.columns, not the transformer's selected columns.
+
+================================================================================
+END OF LOG
+================================================================================

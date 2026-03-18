@@ -1,0 +1,3 @@
+Model,CV roc_auc (mean±std),CV f1 (mean±std),CV average_precision (mean±std),Holdout AUROC,Holdout PR-AUC,Holdout F1
+LogisticRegression,1.0000±0.0000,0.9997±0.0005,1.0000±0.0000,1.0000,1.0000,1.0000
+RandomForest,1.0000±0.0000,1.0000±0.0000,1.0000±0.0000,1.0000,1.0000,1.0000
