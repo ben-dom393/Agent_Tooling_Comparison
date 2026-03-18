@@ -1,0 +1,3 @@
+model,task,roc_auc,pr_auc,balanced_accuracy,positive_rate_pred
+RandomForest(balanced_subsample),binary_classification,0.8062751338506533,0.4904968632859346,0.7594460528798528,0.15270696771060938
+LogisticRegression(balanced),binary_classification,0.8005982003868106,0.45973307208039277,0.7506608507476767,0.19847050254916243
