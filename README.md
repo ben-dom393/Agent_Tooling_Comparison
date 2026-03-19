@@ -42,7 +42,7 @@ Navigate into any agent folder (`codex/`, `Claude/`, or `Antigravity/`) and run 
 
 ## Dataset
 
-**UCI Bank Marketing** (`bank-additional-full.csv`) — 41,188 rows, 21 columns, binary target: did the client subscribe to a term deposit? (~11.3% positive class). Each agent folder contains its own copy of the CSV.
+**UCI Bank Marketing** (`bank-additional-full.csv`) — 41,188 rows, 21 columns, binary target — whether the client subscribed to a term deposit (~11.3% positive class). Each agent folder contains its own copy of the CSV.
 
 ---
 
