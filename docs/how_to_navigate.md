@@ -2,7 +2,7 @@
 
 A quick-reference guide for assessing the project.
 
-## If You Only Have 15 Minutes
+
 
 One key file per task, per agent:
 
